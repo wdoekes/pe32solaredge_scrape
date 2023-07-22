@@ -43,6 +43,7 @@
 # """
 import base64
 import json
+import logging
 import os
 import sys
 import time
@@ -88,6 +89,8 @@ try:
     import psycopg2
 except ImportError:
     pass
+
+log = logging.getLogger()
 
 BINDIR = os.path.dirname(__file__)
 CONFDIR = SPOOLDIR = BINDIR
@@ -152,8 +155,7 @@ def load_config_yaml():
         for k, v in config['solaredge_web']['cookies'].items():
             config['solaredge_web']['cookies'][k] = str(v)
     except Exception as e:
-        print(e, file=sys.stderr)
-        print('PROBLEM SOURCE:', config, file=sys.stderr)
+        log.exception('Problem in config %r', config)
         raise
 
     # Base64 decode database.dsn.password.
@@ -363,10 +365,13 @@ def fetch_and_publish():
             os.rename(latest_json + '.new', latest_json)
 
             with open(latest_json) as fp:
-                print('WROTE latest.json:', fp.read())
+                log.info('WROTE latest.json: %r', fp.read())
 
             # XXX: publish
-        print('SLEEPING for 400')
+            log.warning(
+                'FIXME: publish not implemented yet. Data in %r',
+                latest_json)
+        log.info('SLEEPING for 400')
         time.sleep(400)
 
 
@@ -391,6 +396,15 @@ if __name__ == '__main__':
             for i in (sys.stdin, sys.stdout, sys.stderr)) or
         not os.environ.get('JOURNAL_STREAM'))
     sys.stdout.reconfigure(line_buffering=True)  # PYTHONUNBUFFERED, but better
+    logging.basicConfig(
+        level=(
+            logging.DEBUG if os.environ.get('PE32SOLAREDGE_DEBUG', '')
+            else logging.INFO),
+        format=(
+            '%(asctime)s %(message)s' if called_from_cli
+            else '%(message)s'),
+        stream=sys.stdout,
+        datefmt='%Y-%m-%d %H:%M:%S')
 
     if sys.argv[1:] == []:
         main()
