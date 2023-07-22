@@ -3,4 +3,5 @@ __pycache__
 
 /api_v3_site.js
 /config.yaml
-/cookies.js
+/cookies.json
+/latest.json

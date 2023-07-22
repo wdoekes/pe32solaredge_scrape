@@ -107,8 +107,8 @@ if os.environ.get('SOLAREDGE_SCRAPE_CONFIG'):
 if os.environ.get('SOLAREDGE_SCRAPE_RUNDIR'):
     SPOOLDIR = os.environ['SOLAREDGE_SCRAPE_RUNDIR']
 
-# cookies.js, for temporary cookie storage
-COOKIE_JAR = os.path.join(SPOOLDIR, 'cookies.js')
+# cookies.json, for temporary cookie storage
+COOKIE_JAR = os.path.join(SPOOLDIR, 'cookies.json')
 
 
 def load_config_yaml():
