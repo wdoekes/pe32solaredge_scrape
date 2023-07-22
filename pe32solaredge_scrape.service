@@ -1,0 +1,24 @@
+[Unit]
+Description=PE32 SolarEdge scraping
+After=network.target
+
+[Service]
+Type=simple
+##Environment=PE32_BROKER=test.mosquitto.org
+##Environment=PE32_TOPIC=PE32/RASPI
+##Environment=PE32_GUID=EUI48:11:22:33:44:55:66
+##Environment=PE32_DEBUG=1
+#Environment=SOLAREDGE_SCRAPE_CONFIG=/srv/pe32solaredge_scrape/config.yaml
+#Environment=SOLAREDGE_SCRAPE_RUNDIR=/run/pe32solaredge_scrape
+EnvironmentFile=-/etc/default/pe32solaredge_scrape
+#StateDirectory=pe32solaredge_scrape
+RuntimeDirectory=pe32solaredge_scrape
+RestartSec=15
+Restart=always
+ExecStart=/usr/bin/python3 /srv/pe32solaredge_scrape/pe32solaredge_scrape.py --publish
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
+# vim: set syn=dosini:

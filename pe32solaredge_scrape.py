@@ -97,6 +97,13 @@ CONFDIR = SPOOLDIR = BINDIR
 # >   Email: user@domain.tld
 # >   Password: YmFzZTY0X2VuY29kZWRfcGFzc3dvcmQ=
 CONFIG = os.path.join(CONFDIR, 'config.yaml')
+
+# Optionally we can override the CONFIG and SPOOLDIR using env.
+if os.environ.get('SOLAREDGE_SCRAPE_CONFIG'):
+    CONFIG = os.environ['SOLAREDGE_SCRAPE_CONFIG']
+if os.environ.get('SOLAREDGE_SCRAPE_RUNDIR'):
+    SPOOLDIR = os.environ['SOLAREDGE_SCRAPE_RUNDIR']
+
 # cookies.js, for temporary cookie storage
 COOKIE_JAR = os.path.join(SPOOLDIR, 'cookies.js')
 
@@ -291,6 +298,19 @@ def fetch_cached_api_v3_site(clear_cache=False):
     return text, age
 
 
+def fetch_reasonably_fresh_data():
+    # Get recent copy first.
+    text, age = fetch_cached_api_v3_site(clear_cache=False)
+    parsed = parse_api_v3_js(text)
+    # While current power is 0, only query every 15 minutes.
+    if parsed['currentPower'] == 0 and age < (15 * 60):
+        return parsed, False
+
+    text, age = fetch_cached_api_v3_site(clear_cache=True)
+    parsed = parse_api_v3_js(text)
+    return parsed, True
+
+
 def insert_latest_into_db():
     """
     Run every minute.
@@ -303,11 +323,8 @@ def insert_latest_into_db():
         except psycopg2.IntegrityError:
             pass
 
-    # Get recent copy first.
-    text, age = fetch_cached_api_v3_site(clear_cache=False)
-    parsed = parse_api_v3_js(text)
-    # While current power is 0, only query every 5 minutes.
-    if parsed['currentPower'] == 0 and age < 300:
+    parsed, fresh = fetch_reasonably_fresh_data()
+    if not fresh:
         exit()
 
     config = load_config_yaml()
@@ -317,9 +334,6 @@ def insert_latest_into_db():
     #     cursor.execute('SELECT NOW();');
     #     now = cursor.fetchall()[0][0]
     # dt = now
-
-    text, age = fetch_cached_api_v3_site(clear_cache=True)
-    parsed = parse_api_v3_js(text)
 
     dt = parsed['lastUpdateTime'].strftime('%Y-%m-%d %H:%M:%S')
     table_loc_vals = (
@@ -332,6 +346,28 @@ def insert_latest_into_db():
             f"INSERT INTO {table} (time, location_id, value) VALUES "
             f"('{dt}'::timestamptz, {label_id}, {value});")
         execute_or_ignore(conn, query)
+
+
+def fetch_and_publish():
+    while True:
+        parsed, fresh = fetch_reasonably_fresh_data()
+        if fresh:
+            latest_json = os.path.join(SPOOLDIR, 'latest.json')
+            with open(latest_json + '.new', 'w') as fp:
+                fp.write(json.dumps({
+                    'inst_solar_pwr': parsed['currentPower'],
+                    'solar_act': parsed['lifeTimeEnergy'],
+                    'solar_act_day': parsed['lastDayEnergy'],
+                    'last_update': dt_unixtime(parsed['lastUpdateTime']),
+                }) + '\n')
+            os.rename(latest_json + '.new', latest_json)
+
+            with open(latest_json) as fp:
+                print('WROTE latest.json:', fp.read())
+
+            # XXX: publish
+        print('SLEEPING for 400')
+        time.sleep(400)
 
 
 def main():
@@ -347,8 +383,19 @@ def main():
 
 
 if __name__ == '__main__':
+    called_from_cli = (
+        # Reading just JOURNAL_STREAM or INVOCATION_ID will not tell us
+        # whether a user is looking at this, or whether output is passed to
+        # systemd directly.
+        any(os.isatty(i.fileno())
+            for i in (sys.stdin, sys.stdout, sys.stderr)) or
+        not os.environ.get('JOURNAL_STREAM'))
+    sys.stdout.reconfigure(line_buffering=True)  # PYTHONUNBUFFERED, but better
+
     if sys.argv[1:] == []:
         main()
+    elif sys.argv[1:] == ['--publish']:
+        fetch_and_publish()
     elif sys.argv[1:] == ['insert']:
         insert_latest_into_db()
     else:

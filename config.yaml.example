@@ -1,0 +1,25 @@
+solaredge_web:
+  api_v3_site_url:
+    https://monitoring.solaredge.com/solaredge-apigw/api/v3/sites/NUMBER
+  http_referer:
+    https://monitoring.solaredge.com/solaredge-web/p/site/NUMBER/
+  http_user_agent: Mozilla/5.0 (X11; Linux x86_64) ...
+  cookies:
+    SolarEdge_Client-1.6: 83b...
+    SolarEdge_SSO-1.4: 011...
+    SolarEdge_Field_ID: NUMBER
+    # Irrelevant. Even for en_US we get user-configured values.
+    SolarEdge_Locale: nl_NL
+
+    # This one changes every now and then.
+    # (It IS needed. Also, it is readable B64 without trailing '='.)
+    SPRING_SECURITY_REMEMBER_ME_COOKIE: d2F...
+
+    # This one changes every time. It is NOT needed for initial call.
+    #JSESSIONID: 6380...
+database:
+  dsn:
+    host: dbhost
+    user: dbuser
+    database: dbname
+    password: cGFzc3dvcmQK
