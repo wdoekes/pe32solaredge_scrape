@@ -48,9 +48,41 @@ import sys
 import time
 from datetime import datetime
 
-import pytz
 import requests
 import yaml
+
+try:
+    # python3-pytz on Ubuntu
+    import pytz
+    TZINFO = pytz.timezone('Europe/Amsterdam')
+
+    def dt_naive_to_local(naive_dt):
+        try:
+            return TZINFO.localize(naive_dt, is_dst=None)
+        except pytz.exceptions.AmbiguousTimeError:
+            # Don't care; this is during night time anyway.
+            return TZINFO.localize(naive_dt, is_dst=False)
+
+    def dt_local_to_utc(local_dt):
+        return local_dt.astimezone(pytz.utc)
+
+    def dt_unixtime(timeobj):
+        return int(timeobj.timestamp())
+except ImportError:
+    # python3-arrow on Raspbian
+    import arrow
+    from dateutil.tz import gettz
+    TZFILE = gettz('Europe/Amsterdam')
+
+    def dt_naive_to_local(naive_dt):
+        # XXX: what about ambiguous time?
+        return arrow.get(naive_dt, TZFILE)
+
+    def dt_local_to_utc(local_dt):
+        return local_dt.to('UTC')
+
+    def dt_unixtime(timeobj):
+        return timeobj.timestamp
 
 try:
     import psycopg2
@@ -59,7 +91,6 @@ except ImportError:
 
 BINDIR = os.path.dirname(__file__)
 CONFDIR = SPOOLDIR = BINDIR
-TIMEZONE = pytz.timezone('Europe/Amsterdam')
 
 # config.yaml, to configure ATAG One API credentials
 # > login:
@@ -178,16 +209,12 @@ def parse_api_v3_js(text):
     ret['lastUpdateTime'] = ret['lastUpdateTime'].split('.', 1)[0]
     assert len(ret['lastUpdateTime']) == 19, ret
     naive_dt = datetime.strptime(ret['lastUpdateTime'], '%Y-%m-%d %H:%M:%S')
-    try:
-        local_dt = TIMEZONE.localize(naive_dt, is_dst=None)
-    except pytz.exceptions.AmbiguousTimeError:
-        # Don't care; this is during night time anyway.
-        local_dt = TIMEZONE.localize(naive_dt, is_dst=False)
-    utc_dt = local_dt.astimezone(pytz.utc)
+    local_dt = dt_naive_to_local(naive_dt)
+    utc_dt = dt_local_to_utc(local_dt)
     ret['lastUpdateTime'] = utc_dt
-    ret['lifeTimeEnergy'] = fo['lifeTimeData']['energy']  # Wh
-    ret['lastDayEnergy'] = fo['lastDayData']['energy']  # Wh
-    ret['currentPower'] = fo['currentPower']['currentPower']
+    ret['lifeTimeEnergy'] = fo['lifeTimeData']['energy']        # Wh
+    ret['lastDayEnergy'] = fo['lastDayData']['energy']          # Wh
+    ret['currentPower'] = fo['currentPower']['currentPower']    # W
     assert fo['currentPower']['unit'] == 'W', fo
     return ret
 
