@@ -7,7 +7,7 @@ Type=simple
 ##Environment=PE32_BROKER=test.mosquitto.org
 ##Environment=PE32_TOPIC=PE32/RASPI
 ##Environment=PE32_GUID=EUI48:11:22:33:44:55:66
-##Environment=PE32_DEBUG=1
+##Environment=PE32SOLAREDGE_DEBUG=1
 #Environment=SOLAREDGE_SCRAPE_CONFIG=/srv/pe32solaredge_scrape/config.yaml
 #Environment=SOLAREDGE_SCRAPE_RUNDIR=/run/pe32solaredge_scrape
 EnvironmentFile=-/etc/default/pe32solaredge_scrape
